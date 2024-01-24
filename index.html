@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="stylesheet" href="/src/styles.css" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tauri App</title>
+  <script type="module" src="/src/main.ts" defer></script>
+  <style>
+    .logo.vite:hover {
+      filter: drop-shadow(0 0 2em #747bff);
+    }
+
+    .logo.typescript:hover {
+      filter: drop-shadow(0 0 2em #2d79c7);
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <h3> Apk Edit And Resign </h3>
+
+    <p>Please Select JDK HOME</p>
+
+    <div class="row">
+      <input id="java-path" placeholder="" />
+      <button id="java-path-select">Select</button>
+    </div>
+
+    <p>Please Select Apk File</p>
+
+    <div class="row">
+      <input id="apk-file-path" placeholder="" />
+      <button id="apk-file-select">Select</button>
+    </div>
+
+    <p>Please Input New Package Name</p>
+
+    <div class="row">
+      <input id="apk-package-name" placeholder="" />
+    </div>
+
+    <p>Please Input New Display Name</p>
+
+    <div class="row">
+      <input id="apk-display-name" placeholder="" />
+    </div>
+
+    <p>Please Select New Icon</p>
+
+    <div class="row">
+      <input id="apk-icon-file-path" placeholder="" />
+      <button id="apk-icon-file-select">Select</button>
+    </div>
+
+    <p></p>
+
+    <div class="row">
+      <label id="apk-repack-in-progress">...</label>
+      <button id="apk-repack"> Pack It! </button>
+    </div>
+
+    <p></p>
+  </div>
+</body>
+
+</html>
