@@ -72,6 +72,22 @@ fn set_env(name: &str, value: &str) {
     std::env::set_var(String::from(name), String::from(value));
 }
 
+fn try_parse_output(output: std::process::Output) -> Result<String, String> {
+    if !output.stderr.is_empty() {
+        let err_str = String::from_utf8_lossy(&output.stderr);
+        return Err(err_str.to_string());
+    }
+
+    let out_str = String::from_utf8_lossy(&output.stdout);
+    log::info!("output: {}", out_str);
+
+    if output.status.success() {
+        return Ok(out_str.to_string());
+    } else {
+        return Err("unknown error".to_string());
+    }
+}
+
 #[tauri::command]
 async fn change_content_and_repack_apk(
     javapath: String,
@@ -150,13 +166,9 @@ async fn change_content_and_repack_apk(
         .output()
         .expect("failed to execute process");
 
-    let error = String::from_utf8(output.stderr).unwrap();
-    log::info!("error: {}", error);
-    let output = String::from_utf8(output.stdout).unwrap();
-    log::info!("output: {}", output);
-
-    if error != "" {
-        return Ok(error);
+    let output_result = try_parse_output(output);
+    if output_result.is_err() {
+        return Ok(output_result.err().unwrap());
     }
 
     let manifest_file_path = original.join("AndroidManifest.xml");
@@ -242,13 +254,9 @@ async fn change_content_and_repack_apk(
         .output()
         .expect("failed to execute process");
 
-    let error = String::from_utf8(output.stderr).unwrap();
-    log::info!("error: {}", error);
-    let output = String::from_utf8(output.stdout).unwrap();
-    log::info!("output: {}", output);
-
-    if error != "" {
-        return Ok(error);
+    let output_result = try_parse_output(output);
+    if output_result.is_err() {
+        return Ok(output_result.err().unwrap());
     }
 
     // sign apk
@@ -284,13 +292,9 @@ async fn change_content_and_repack_apk(
         .output()
         .expect("failed to execute process");
 
-    let error = String::from_utf8(output.stderr).unwrap();
-    log::info!("error: {}", error);
-    let output = String::from_utf8(output.stdout).unwrap();
-    log::info!("output: {}", output);
-
-    if error != "" {
-        return Ok(error);
+    let output_result = try_parse_output(output);
+    if output_result.is_err() {
+        return Ok(output_result.err().unwrap());
     }
 
     // copy channel if exist
@@ -313,15 +317,12 @@ async fn change_content_and_repack_apk(
         .output()
         .expect("failed to execute process");
 
-    let error = String::from_utf8(output.stderr).unwrap();
-    log::info!("error: {}", error);
-    let output = String::from_utf8(output.stdout).unwrap();
-    log::info!("output: {}", output);
-
-    if error != "" {
-        return Ok(error);
+    let output_result = try_parse_output(output);
+    if output_result.is_err() {
+        return Ok(output_result.err().unwrap());
     }
 
+    let output = output_result.unwrap();
     let channel_index = output.rfind("Channel: ").unwrap();
     let channel = String::from(&output[channel_index + 9..])
         .trim()
@@ -356,13 +357,9 @@ async fn change_content_and_repack_apk(
             .output()
             .expect("failed to execute process");
 
-        let error = String::from_utf8(output.stderr).unwrap();
-        log::info!("error: {}", error);
-        let output = String::from_utf8(output.stdout).unwrap();
-        log::info!("output: {}", output);
-
-        if error != "" {
-            return Ok(error);
+        let output_result = try_parse_output(output);
+        if output_result.is_err() {
+            return Ok(output_result.err().unwrap());
         }
     }
 
