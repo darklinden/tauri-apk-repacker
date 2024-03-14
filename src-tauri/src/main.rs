@@ -73,7 +73,7 @@ fn set_env(name: &str, value: &str) {
 }
 
 fn try_parse_output(output: std::process::Output) -> Result<String, String> {
-    if !output.stderr.is_empty() {
+    if !output.status.success() {
         let err_str = String::from_utf8_lossy(&output.stderr);
         return Err(err_str.to_string());
     }
@@ -81,11 +81,7 @@ fn try_parse_output(output: std::process::Output) -> Result<String, String> {
     let out_str = String::from_utf8_lossy(&output.stdout);
     log::info!("output: {}", out_str);
 
-    if output.status.success() {
-        return Ok(out_str.to_string());
-    } else {
-        return Err("unknown error".to_string());
-    }
+    return Ok(out_str.to_string());
 }
 
 #[tauri::command]
