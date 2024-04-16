@@ -14,7 +14,7 @@
     "tauri-plugin-log-api": "https://github.com/tauri-apps/tauri-plugin-log"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "^1.5.8",
+    "@tauri-apps/cli": "^1.5.11",
     "typescript": "^5.0.2",
     "vite": "^5.0.0"
   }

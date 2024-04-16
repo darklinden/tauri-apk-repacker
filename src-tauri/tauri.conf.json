@@ -8,19 +8,33 @@
   },
   "package": {
     "productName": "tauri-repack",
-    "version": "0.0.0"
+    "version": "0.0.1"
   },
   "tauri": {
     "allowlist": {
-      "all": false,
-      "shell": {
-        "all": true
-      },
+      "all": true,
       "fs": {
-        "all": true
+        "all": true,
+        "readFile": true,
+        "writeFile": true,
+        "readDir": true,
+        "copyFile": true,
+        "createDir": true,
+        "removeDir": true,
+        "removeFile": true,
+        "renameFile": true,
+        "exists": true,
+        "scope": [
+          "**",
+          "**/*"
+        ]
       },
-      "dialog": {
-        "all": true
+      "protocol": {
+        "asset": true,
+        "assetScope": [
+          "**",
+          "**/*"
+        ]
       }
     },
     "bundle": {
@@ -43,8 +57,8 @@
         "fullscreen": false,
         "resizable": true,
         "title": "tauri-repack",
-        "width": 800,
-        "height": 600
+        "width": 1024,
+        "height": 800
       }
     ]
   }

@@ -13,14 +13,16 @@ edition = "2021"
 tauri-build = { version = "1.5", features = [] }
 
 [dependencies]
-tauri = { version = "1.5", features = [ "shell-all", "dialog-all", "fs-all"] }
+tauri = { version = "1.5", features = ["api-all"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 tauri-plugin-log = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v1" }
 log = "0.4.20"
 quick-xml = "0.31.0"
-image = "0.24.8"
-
+image = "0.25"
+regex = "1.10.4"
+chrono = "0.4.35"
+anyhow = "1.0.82"
 
 [features]
 # this feature is used for production builds or when `devPath` points to the filesystem

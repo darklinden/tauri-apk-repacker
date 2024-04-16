@@ -1,40 +1,216 @@
 import { invoke } from "@tauri-apps/api/tauri";
-import { open } from '@tauri-apps/api/dialog';
-import { confirm } from '@tauri-apps/api/dialog';
-import { exists, BaseDirectory, writeTextFile } from '@tauri-apps/api/fs';
-import { sep } from '@tauri-apps/api/path';
+import { message, open } from '@tauri-apps/api/dialog';
+import { exists, BaseDirectory, copyFile } from '@tauri-apps/api/fs';
+import { sep, join } from '@tauri-apps/api/path'
 import { info } from "tauri-plugin-log-api";
-
-let element_java_path: HTMLInputElement | null;
-let element_apk_file_path: HTMLInputElement | null;
-let element_apk_package_name: HTMLInputElement | null;
-let element_apk_display_name: HTMLInputElement | null;
-let element_apk_icon_file_path: HTMLInputElement | null;
-
-let element_apk_repack_in_progress: HTMLLabelElement | null;
-let element_apk_repack: HTMLButtonElement | null;
+import { convertFileSrc } from '@tauri-apps/api/tauri';
 
 
-async function initialize() {
+let lb_apk_local_path: HTMLLabelElement | null;
+let btn_apk_load_info: HTMLButtonElement | null;
+let btn_apk_load_by_path: HTMLButtonElement | null;
 
-    element_apk_repack_in_progress!.hidden = false;
-    element_apk_repack_in_progress!.textContent = "Initializing...";
-    element_apk_repack!.hidden = true;
+let lb_package_old: HTMLLabelElement | null;
+let it_package_new: HTMLInputElement | null;
 
-    info("Call extract_tools ");
-    let result = await invoke<string>("extract_tools", {});
-    info("extract_tools result: " + result);
+let lb_display_name_old: HTMLLabelElement | null;
+let it_display_name_new: HTMLInputElement | null;
 
-    info("Call get_java_path ");
-    result = await invoke<string>("get_env", { name: "JAVA_HOME" });
+let icon_old: HTMLImageElement | null;
+let icon_new: HTMLImageElement | null;
+let btn_load_icon: HTMLButtonElement | null;
+let des_icon_path: string | null = null;
 
-    element_java_path!.value = result;
+let lb_jdk_path: HTMLLabelElement | null;
+let btn_load_jdk_path: HTMLButtonElement | null;
 
-    element_apk_repack_in_progress!.hidden = true;
-    element_apk_repack!.hidden = false;
+let btn_start_work: HTMLButtonElement | null;
+
+async function cacheDir() {
+
+    let cache_dir = await invoke<string>("get_cache_dir");
+    info("cache_dir: " + cache_dir);
+
+    return cache_dir;
 }
 
-async function java_path_select() {
+async function alert(content: string) {
+    await message(content, {
+        title: 'Tip',
+        okLabel: 'Ok'
+    });
+}
+
+async function bind_apk_elements() {
+    lb_apk_local_path = document.querySelector("#lb_apk_local_path");
+    btn_apk_load_info = document.querySelector("#btn_apk_load_info");
+    btn_apk_load_by_path = document.querySelector("#btn_apk_load_by_path");
+
+    btn_apk_load_info!.hidden = true;
+
+    btn_apk_load_by_path?.addEventListener("click", (e) => {
+        e.preventDefault();
+        load_apk();
+    });
+
+    btn_apk_load_info?.addEventListener("click", (e) => {
+        e.preventDefault();
+        load_apk_info();
+    });
+}
+
+async function load_apk() {
+
+    // Open a selection dialog for directories
+    let selected = await open({
+        directory: false,
+        multiple: false,
+        filters: [{
+            name: '*.apk',
+            extensions: ['apk']
+        }],
+    });
+
+    if (selected === null) {
+        if (!lb_apk_local_path!.textContent)
+            // user cancelled the selection
+            await alert('Please select an apk file');
+        return;
+    }
+
+    if (Array.isArray(selected)) {
+        selected = selected[0];
+    }
+
+    let fileExist = await exists(selected, { dir: BaseDirectory.AppData });
+
+    if (!fileExist) {
+        await alert('Apk file not exist');
+        return;
+    }
+
+    info(selected);
+
+    lb_apk_local_path!.textContent = selected;
+    btn_apk_load_info!.hidden = false;
+}
+
+async function load_apk_info() {
+    info("load_apk_info");
+
+    let apk_path = lb_apk_local_path!.textContent;
+
+    if (!apk_path || !await exists(apk_path!, { dir: BaseDirectory.AppData })) {
+        await alert('Please select an apk file');
+        return;
+    }
+
+    btn_apk_load_info!.hidden = true;
+
+    let result = await invoke<string>("unpack_and_get_apk_info", {
+        apkPath: apk_path,
+    });
+
+    info("" + result);
+
+    if (result.startsWith("error")) {
+        await alert('Load apk info failed');
+    }
+    else {
+        let apk_info = JSON.parse(result);
+        info("apk_info: " + apk_info);
+
+        lb_display_name_old!.textContent = apk_info['display_name'];
+        lb_package_old!.textContent = apk_info['package_name'];
+        let src_icon_path = apk_info['icon_path'];
+
+        let icon_path = convertFileSrc(src_icon_path);
+        info("icon_path: " + icon_path);
+        icon_old!.src = icon_path;
+        await alert('Load apk info success');
+    }
+
+    btn_apk_load_info!.hidden = false;
+}
+
+function bind_package_elements() {
+    lb_package_old = document.querySelector("#lb_package_old");
+    it_package_new = document.querySelector("#it_package_new");
+    lb_display_name_old = document.querySelector("#lb_display_name_old");
+    it_display_name_new = document.querySelector("#it_display_name_new");
+}
+
+async function bind_app_icon_elements() {
+
+    icon_old = document.querySelector("#icon_old");
+    icon_new = document.querySelector("#icon_new");
+    btn_load_icon = document.querySelector("#btn_load_icon");
+
+    btn_load_icon?.addEventListener("click", (e) => {
+        e.preventDefault();
+        load_icon();
+    });
+}
+
+async function load_icon() {
+
+    info("load_icon");
+    // Open a selection dialog for directories
+    let selected = await open({
+        directory: false,
+        multiple: false,
+        filters: [{
+            name: '*.png',
+            extensions: ['png']
+        }],
+    });
+
+    if (selected === null) {
+        // user cancelled the selection
+        await alert('Please select an icon file');
+        return;
+    }
+
+    if (Array.isArray(selected)) {
+        selected = selected[0];
+    }
+
+    let fileExist = await exists(selected, { dir: BaseDirectory.AppData });
+
+    if (!fileExist) {
+        await alert('Icon file not exist');
+        return;
+    }
+
+    info(selected);
+
+    let cached = await cacheDir();
+    let icon_cached = await join(cached, 'des-icon_' + Date.now() + '.png');
+    await copyFile(selected, icon_cached);
+
+    info("icon_cached: " + icon_cached);
+    let icon_path = convertFileSrc(icon_cached);
+    info("icon_path: " + icon_path);
+    icon_new!.src = icon_path;
+
+    des_icon_path = icon_cached;
+}
+
+async function bind_environments() {
+    lb_jdk_path = document.querySelector("#lb_jdk_path");
+    btn_load_jdk_path = document.querySelector("#btn_load_jdk_path");
+
+    btn_load_jdk_path?.addEventListener("click", (e) => {
+        e.preventDefault();
+        load_jdk_path();
+    });
+
+    let result = await invoke<string>("get_env", { name: "JAVA_HOME" });
+
+    lb_jdk_path!.textContent = result;
+}
+
+async function load_jdk_path() {
 
     // Open a selection dialog for directories
     let selected = await open({
@@ -49,13 +225,13 @@ async function java_path_select() {
     info("selected: " + selected);
 
     if (!selected) {
-        if (!element_java_path!.value) {
+        if (!lb_jdk_path!.textContent) {
             // user cancelled the selection
-            await confirm('Please select java path', 'Ok');
+            await alert('Please select java path');
             return;
         }
         else {
-            selected = element_java_path!.value;
+            selected = lb_jdk_path!.textContent;
         }
     }
 
@@ -66,12 +242,12 @@ async function java_path_select() {
     let fileExist = await exists(selected, { dir: BaseDirectory.AppData });
 
     if (!fileExist) {
-        await confirm('Java path not exist', 'Ok');
+        await alert('Java path not exist');
         return;
     }
 
-    // remove bing/java
-    if (selected.endsWith("java.exe"))
+    // remove bin/java
+    if (selected.endsWith(".exe"))
         selected = selected.substring(0, selected.length - 9);
     if (selected.endsWith("java"))
         selected = selected.substring(0, selected.length - 5);
@@ -82,177 +258,91 @@ async function java_path_select() {
 
     info(selected);
 
-    if (element_java_path) {
-        element_java_path!.value = selected;
-        info("Call set_java_path ");
-        let result = await invoke("set_env", { name: "JAVA_HOME", value: selected });
-        info("set_java_path result: " + result);
-    }
 
+    lb_jdk_path!.textContent = selected;
+    await invoke("set_env", { name: "JAVA_HOME", value: selected });
 }
 
-async function apk_file_select() {
+async function repack(): Promise<boolean> {
+    let apk_file_path = lb_apk_local_path!.textContent;
+    let apk_package_name = it_package_new!.value;
+    let apk_display_name = it_display_name_new!.value;
+    let apk_icon_file_path = des_icon_path;
 
-    // Open a selection dialog for directories
-    let selected = await open({
-        directory: false,
-        multiple: false,
-        filters: [{
-            name: '*.apk',
-            extensions: ['apk']
-        }],
-    });
-
-    if (selected === null) {
-        if (!element_apk_file_path!.value)
-            // user cancelled the selection
-            await confirm('Please select apk file', 'Ok');
-        return;
-    }
-
-    if (Array.isArray(selected)) {
-        selected = selected[0];
-    }
-
-    let fileExist = await exists(selected, { dir: BaseDirectory.AppData });
-
-    if (!fileExist) {
-        await confirm('Apk file not exist', 'Ok');
-        return;
-    }
-
-    info(selected);
-    if (element_apk_file_path)
-        element_apk_file_path!.value = selected;
-
-}
-
-async function apk_icon_file_select() {
-
-    // Open a selection dialog for directories
-    let selected = await open({
-        directory: false,
-        multiple: false,
-        filters: [{
-            name: '*.png',
-            extensions: ['png']
-        }],
-    });
-
-    if (selected === null) {
-        // user cancelled the selection
-        await confirm('Please select icon file', 'Ok');
-        return;
-    }
-
-    if (Array.isArray(selected)) {
-        selected = selected[0];
-    }
-
-    let fileExist = await exists(selected, { dir: BaseDirectory.AppData });
-
-    if (!fileExist) {
-        await confirm('Icon file not exist', 'Ok');
-        return;
-    }
-
-    info(selected);
-    if (element_apk_icon_file_path)
-        element_apk_icon_file_path!.value = selected;
-}
-
-async function do_apk_repack(
-    java_path: string | null | undefined,
-    apk_file_path: string | null | undefined,
-    apk_package_name: string | null | undefined,
-    apk_display_name: string | null | undefined,
-    apk_icon_file_path: string | null | undefined) {
-
-    element_apk_repack_in_progress!.hidden = false;
-    element_apk_repack_in_progress!.textContent = "Repacking...";
-    element_apk_repack!.hidden = true;
-
-    if (!apk_file_path) {
-        await confirm('Please select apk file', 'Ok');
-        element_apk_repack_in_progress!.hidden = true;
-        element_apk_repack!.hidden = false;
-        return;
+    if (!apk_file_path || !await exists(apk_file_path, { dir: BaseDirectory.AppData })) {
+        await alert('Please select an apk file');
+        return false;
     }
 
     if (!apk_package_name) {
-        apk_package_name = '';
+        await alert('Please fill in the package name');
+        return false;
     }
 
     if (!apk_display_name) {
-        apk_display_name = '';
+        await alert('Please fill in the display name');
+        return false;
     }
 
     if (!apk_icon_file_path) {
-        apk_icon_file_path = '';
+        await alert('Please select an icon file');
+        return false;
     }
 
-    info("Call change_content_and_repack_apk ");
     let result = await invoke<string>("change_content_and_repack_apk", {
-        javapath: java_path,
-        apkfilepath: apk_file_path,
-        apkpackagename: apk_package_name,
-        apkdisplayname: apk_display_name,
-        apkiconfilepath: apk_icon_file_path
+        apkFilePath: apk_file_path,
+        apkPackageName: apk_package_name,
+        apkDisplayName: apk_display_name,
+        apkIconFilePath: apk_icon_file_path
     });
 
-    info("" + result);
-
-    if (result === "success") {
-        await confirm('Success', 'Ok');
-    }
-    else {
-        await confirm('Failed, View log for details', 'Ok');
-        let fileName = "failed_" + Date.now() + ".txt";
-        await writeTextFile(fileName, result, { dir: BaseDirectory.App });
+    if (result != "success") {
+        await alert('Repack failed');
+        return false;
     }
 
-    element_apk_repack_in_progress!.hidden = true;
-    element_apk_repack!.hidden = false;
+    return true;
+}
+
+async function start_work() {
+
+    btn_start_work!.hidden = true;
+
+    let success: boolean = false;
+
+    do {
+        success = await repack();
+        if (!success) break;
+
+    } while (false);
+
+    btn_start_work!.hidden = false;
+
+    if (success) {
+        await alert('Repack success');
+    }
+}
+
+function bind_works() {
+    btn_start_work = document.querySelector("#btn_start_work");
+    btn_start_work?.addEventListener("click", (e) => {
+        e.preventDefault();
+        start_work();
+    });
+
+    btn_start_work!.hidden = false;
 }
 
 window.addEventListener("DOMContentLoaded", () => {
-    element_java_path = document.querySelector("#java-path");
-    element_apk_file_path = document.querySelector("#apk-file-path");
-    element_apk_package_name = document.querySelector("#apk-package-name");
-    element_apk_display_name = document.querySelector("#apk-display-name");
-    element_apk_icon_file_path = document.querySelector("#apk-icon-file-path");
-    element_apk_repack_in_progress = document.querySelector("#apk-repack-in-progress");
-    element_apk_repack = document.querySelector("#apk-repack");
 
-    document.querySelector("#java-path-select")?.addEventListener("click", (e) => {
-        e.preventDefault();
-        info("java-path-select");
-        java_path_select();
-    });
-
-    document.querySelector("#apk-file-select")?.addEventListener("click", (e) => {
-        e.preventDefault();
-        info("apk-file-select");
-        apk_file_select();
-    });
-
-    document.querySelector("#apk-icon-file-select")?.addEventListener("click", (e) => {
-        e.preventDefault();
-        info("apk-icon-file-select");
-        apk_icon_file_select();
-    });
-
-    element_apk_repack?.addEventListener("click", (e) => {
-        e.preventDefault();
-        let java_path = element_java_path?.value;
-        let apk_file_path = element_apk_file_path?.value;
-        let apk_package_name = element_apk_package_name?.value
-        let apk_display_name = element_apk_display_name?.value;
-        let apk_icon_file_path = element_apk_icon_file_path?.value;
-        do_apk_repack(java_path, apk_file_path, apk_package_name, apk_display_name, apk_icon_file_path);
-    });
-
-    initialize();
+    info("DOMContentLoaded");
+    bind_apk_elements();
+    bind_package_elements();
+    bind_app_icon_elements();
+    bind_works();
+    bind_environments();
 });
+
+
 
 
