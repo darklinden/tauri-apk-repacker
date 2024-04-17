@@ -120,13 +120,22 @@ async function load_apk_info() {
         let apk_info = JSON.parse(result);
         info("apk_info: " + apk_info);
 
-        lb_display_name_old!.textContent = apk_info['display_name'];
         lb_package_old!.textContent = apk_info['package_name'];
-        let src_icon_path = apk_info['icon_path'];
+        if (it_package_new!.value == "")
+            it_package_new!.value = apk_info['package_name'];
+        lb_display_name_old!.textContent = apk_info['display_name'];
+        if (it_display_name_new!.value == "")
+            it_display_name_new!.value = apk_info['display_name'];
 
+        let src_icon_path = apk_info['icon_path'];
         let icon_path = convertFileSrc(src_icon_path);
         info("icon_path: " + icon_path);
         icon_old!.src = icon_path;
+        if (!des_icon_path) {
+            icon_new!.src = icon_path;
+            des_icon_path = src_icon_path;
+        }
+
         await alert('Load apk info success');
     }
 
